@@ -24,8 +24,9 @@ const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <img src="/logo.jpg" alt="Vaduthala Hyper Shopee" className="h-10 w-10 rounded-full object-cover" />
-          <span className="font-bold text-lg text-foreground hidden sm:block">
-            Vaduthala <span className="text-primary">Hyper Shopee</span>
+          <span className="font-bold text-sm sm:text-lg text-foreground leading-tight">
+            Vaduthala<br className="sm:hidden" />{' '}
+            <span className="text-primary">Hyper Shopee</span>
           </span>
         </Link>
 

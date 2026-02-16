@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Trash2, Users, Package, ShoppingCart, MessageSquare, Upload, UserPlus } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Trash2, Users, Package, ShoppingCart, MessageSquare, Upload, UserPlus, Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,10 @@ const Dashboard = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('orders');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const prevOrderCountRef = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // New product form
   const [newProduct, setNewProduct] = useState({ name: '', mrp: '', our_price: '', category_id: '', unit: 'piece', is_weight_based: false, photo_url: '' });
@@ -41,6 +45,27 @@ const Dashboard = () => {
   useEffect(() => {
     if (role === 'admin' || role === 'superadmin') {
       fetchData();
+
+      // Real-time subscription for new orders
+      const channel = supabase
+        .channel('orders-realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+          const newOrder = payload.new as any;
+          const notif = {
+            id: newOrder.id,
+            message: `🛒 New order from ${newOrder.customer_name || 'Customer'}! ₹${newOrder.total_amount}`,
+            time: new Date().toLocaleTimeString(),
+            read: false,
+          };
+          setNotifications(prev => [notif, ...prev]);
+          setOrders(prev => [newOrder, ...prev]);
+          toast({ title: '🔔 New Order!', description: `${newOrder.customer_name || 'Customer'} placed an order for ₹${newOrder.total_amount}` });
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [role]);
 
@@ -140,11 +165,57 @@ const Dashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Dashboard</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          Welcome back! You are logged in as <span className="text-primary font-semibold capitalize">{role}</span>
-        </p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Dashboard</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Welcome back! You are logged in as <span className="text-primary font-semibold capitalize">{role}</span>
+          </p>
+        </div>
+        {/* Notification Bell */}
+        <div className="relative">
+          <Button variant="ghost" size="icon" className="relative" onClick={() => setShowNotifications(!showNotifications)}>
+            <Bell className="h-5 w-5" />
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </Button>
+          <AnimatePresence>
+            {showNotifications && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                className="absolute right-0 top-12 w-80 bg-card border rounded-xl shadow-lg z-50 overflow-hidden"
+              >
+                <div className="p-3 border-b flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">Notifications</h3>
+                  {notifications.length > 0 && (
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => {
+                      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                    }}>
+                      Mark all read
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">No notifications yet</p>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} className={`p-3 border-b last:border-0 text-sm ${!n.read ? 'bg-primary/5' : ''}`}>
+                        <p className="text-sm">{n.message}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
 
       {/* Stats */}

@@ -63,7 +63,10 @@ const Cart = () => {
     }
 
     clearCart();
-    toast({ title: '🎉 Order placed!', description: 'We will contact you shortly for delivery.' });
+    toast({ 
+      title: '🎉 Order Placed Successfully!', 
+      description: `Thank you${profile?.full_name ? `, ${profile.full_name}` : ''}! Your order of ₹${totalAmount.toFixed(2)} has been received. We will contact you at ${profile?.phone || 'your number'} shortly for delivery. Payment on delivery only.`,
+    });
     navigate('/');
   };
 
