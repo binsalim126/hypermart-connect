@@ -8,7 +8,7 @@ const Footer = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
           {/* Brand */}
           <div className="flex items-start gap-3 col-span-2 sm:col-span-1">
-            <img src="/logo.png" alt="Vaduthala Hyper Shopee" className="h-10 w-10 object-contain mt-0.5" />
+            <img src="/logo.png" alt="Vaduthala Hyper Shopee" className="h-10 w-10 rounded-full object-cover mt-0.5" />
             <div>
               <h3 className="font-bold text-foreground">Vaduthala Hyper Shopee</h3>
               <p className="text-xs text-muted-foreground mt-1">Quality groceries at the best prices, delivered to your door.</p>
