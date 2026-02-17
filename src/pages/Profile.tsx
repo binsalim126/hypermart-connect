@@ -60,6 +60,7 @@ const Profile = () => {
           <Input placeholder="Location" value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} />
           <Input placeholder="Place" value={form.place} onChange={e => setForm(p => ({ ...p, place: e.target.value }))} />
           <Input placeholder="Landmark" value={form.landmark} onChange={e => setForm(p => ({ ...p, landmark: e.target.value }))} />
+          <p className="text-xs text-muted-foreground">Email: {user?.email}</p>
           <Button onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
           </Button>

@@ -238,13 +238,13 @@ const Dashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          {role === 'superadmin' && <TabsTrigger value="users">Users</TabsTrigger>}
-          {role === 'superadmin' && <TabsTrigger value="admins">Manage Admins</TabsTrigger>}
-          <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+        <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
+          <TabsTrigger value="orders" className="text-xs sm:text-sm">Orders</TabsTrigger>
+          <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
+          <TabsTrigger value="categories" className="text-xs sm:text-sm">Categories</TabsTrigger>
+          {role === 'superadmin' && <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>}
+          {role === 'superadmin' && <TabsTrigger value="admins" className="text-xs sm:text-sm">Admins</TabsTrigger>}
+          <TabsTrigger value="suggestions" className="text-xs sm:text-sm">Suggestions</TabsTrigger>
         </TabsList>
 
         {/* ORDERS TAB */}
