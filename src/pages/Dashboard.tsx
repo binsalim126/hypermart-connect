@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Users, Package, ShoppingCart, MessageSquare, Upload, UserPlus, Bell, X } from 'lucide-react';
+import { Plus, Trash2, Users, Package, ShoppingCart, MessageSquare, Upload, UserPlus, Bell, X, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +35,9 @@ const Dashboard = () => {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState({ name: '', mrp: '', our_price: '', category_id: '', unit: 'piece', is_weight_based: false, in_stock: true });
 
   useEffect(() => {
     if (!authLoading && (!user || (role !== 'admin' && role !== 'superadmin'))) {
@@ -81,7 +84,7 @@ const Dashboard = () => {
     if (categoriesRes.data) setCategories(categoriesRes.data);
     if (suggestionsRes.data) setSuggestions(suggestionsRes.data);
 
-    if (role === 'superadmin') {
+    if (role === 'superadmin' || role === 'admin') {
       const { data: profilesData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       if (profilesData) setUsers(profilesData);
     }
@@ -139,6 +142,41 @@ const Dashboard = () => {
   const handleDeleteProduct = async (id: string) => {
     await supabase.from('products').delete().eq('id', id);
     fetchData();
+  };
+
+  const openEditProduct = (p: any) => {
+    setEditingProduct(p);
+    setEditProduct({
+      name: p.name,
+      mrp: String(p.mrp),
+      our_price: String(p.our_price),
+      category_id: p.category_id || '',
+      unit: p.unit,
+      is_weight_based: p.is_weight_based,
+      in_stock: p.in_stock,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditProduct = async () => {
+    if (!editingProduct) return;
+    const { error } = await supabase.from('products').update({
+      name: editProduct.name,
+      mrp: parseFloat(editProduct.mrp),
+      our_price: parseFloat(editProduct.our_price),
+      category_id: editProduct.category_id || null,
+      unit: editProduct.unit,
+      is_weight_based: editProduct.is_weight_based,
+      in_stock: editProduct.in_stock,
+    }).eq('id', editingProduct.id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Product updated!' });
+      setEditDialogOpen(false);
+      setEditingProduct(null);
+      fetchData();
+    }
   };
 
   const handleUpdateOrderStatus = async (id: string, status: string) => {
@@ -242,7 +280,7 @@ const Dashboard = () => {
           <TabsTrigger value="orders" className="text-xs sm:text-sm">Orders</TabsTrigger>
           <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
           <TabsTrigger value="categories" className="text-xs sm:text-sm">Categories</TabsTrigger>
-          {role === 'superadmin' && <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>}
+          {(role === 'superadmin' || role === 'admin') && <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>}
           {role === 'superadmin' && <TabsTrigger value="admins" className="text-xs sm:text-sm">Admins</TabsTrigger>}
           <TabsTrigger value="suggestions" className="text-xs sm:text-sm">Suggestions</TabsTrigger>
         </TabsList>
@@ -373,7 +411,10 @@ const Dashboard = () => {
                         <TableCell className="text-primary font-bold">₹{p.our_price}</TableCell>
                         <TableCell>{p.unit}</TableCell>
                         <TableCell>{p.in_stock ? '✅' : '❌'}</TableCell>
-                        <TableCell>
+                        <TableCell className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEditProduct(p)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteProduct(p.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -385,6 +426,38 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Edit Product Dialog */}
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Product</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <Input placeholder="Product Name *" value={editProduct.name} onChange={e => setEditProduct(p => ({ ...p, name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="MRP *" type="number" value={editProduct.mrp} onChange={e => setEditProduct(p => ({ ...p, mrp: e.target.value }))} />
+                  <Input placeholder="Our Price *" type="number" value={editProduct.our_price} onChange={e => setEditProduct(p => ({ ...p, our_price: e.target.value }))} />
+                </div>
+                <Select value={editProduct.category_id} onValueChange={v => setEditProduct(p => ({ ...p, category_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm">Weight-based?</span>
+                  <Switch checked={editProduct.is_weight_based} onCheckedChange={v => setEditProduct(p => ({ ...p, is_weight_based: v, unit: v ? 'kg' : 'piece' }))} />
+                </div>
+                {editProduct.is_weight_based && (
+                  <Input placeholder="Unit (e.g., kg)" value={editProduct.unit} onChange={e => setEditProduct(p => ({ ...p, unit: e.target.value }))} />
+                )}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm">In Stock?</span>
+                  <Switch checked={editProduct.in_stock} onCheckedChange={v => setEditProduct(p => ({ ...p, in_stock: v }))} />
+                </div>
+                <Button onClick={handleEditProduct} className="w-full">Save Changes</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* CATEGORIES TAB */}
@@ -421,8 +494,8 @@ const Dashboard = () => {
           </Card>
         </TabsContent>
 
-        {/* USERS TAB (superadmin only) */}
-        {role === 'superadmin' && (
+        {/* USERS TAB */}
+        {(role === 'superadmin' || role === 'admin') && (
           <TabsContent value="users">
             <Card>
               <CardHeader><CardTitle>Registered Users</CardTitle></CardHeader>
