@@ -508,6 +508,7 @@ const Dashboard = () => {
                         <TableHead>Email</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Location</TableHead>
+                        <TableHead>Place</TableHead>
                         <TableHead>Landmark</TableHead>
                         <TableHead>Joined</TableHead>
                       </TableRow>
@@ -517,9 +518,10 @@ const Dashboard = () => {
                         <TableRow key={u.id}>
                           <TableCell className="font-medium">{u.full_name}</TableCell>
                           <TableCell>{u.email}</TableCell>
-                          <TableCell>{u.phone}</TableCell>
-                          <TableCell>{u.location}</TableCell>
-                          <TableCell>{u.landmark}</TableCell>
+                          <TableCell>{u.phone || '—'}</TableCell>
+                          <TableCell>{u.location || '—'}</TableCell>
+                          <TableCell>{u.place || '—'}</TableCell>
+                          <TableCell>{u.landmark || '—'}</TableCell>
                           <TableCell className="text-xs">{new Date(u.created_at).toLocaleDateString()}</TableCell>
                         </TableRow>
                       ))}

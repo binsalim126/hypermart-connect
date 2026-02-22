@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Phone, MapPin, Landmark, Mail, Lock } from 'lucide-react';
+import { User, Phone, MapPin, Landmark, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 
 const Register = () => {
   const [form, setForm] = useState({
-    full_name: '', phone: '', email: '', password: '',
+    full_name: '', phone: '', email: '',
     location: '', place: '', landmark: '',
   });
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ const Register = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.full_name || !form.phone || !form.email || !form.password || !form.location) {
+    if (!form.full_name || !form.phone || !form.email || !form.location) {
       toast({ title: 'Missing fields', description: 'Please fill all required fields.', variant: 'destructive' });
       return;
     }
@@ -28,7 +28,7 @@ const Register = () => {
 
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
-      password: form.password,
+      password: form.phone,
       options: {
         emailRedirectTo: window.location.origin,
         data: { full_name: form.full_name },
@@ -41,14 +41,18 @@ const Register = () => {
       return;
     }
 
-    // Update profile with additional details
+    // Wait briefly for trigger to create profile, then update with additional details
     if (data.user) {
-      await supabase.from('profiles').update({
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error: profileError } = await supabase.from('profiles').update({
         phone: form.phone,
         location: form.location,
         place: form.place,
         landmark: form.landmark,
       }).eq('id', data.user.id);
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+      }
     }
 
     setLoading(false);
@@ -60,7 +64,7 @@ const Register = () => {
     { key: 'full_name', label: 'Full Name', icon: User, type: 'text', required: true },
     { key: 'phone', label: 'Phone Number', icon: Phone, type: 'tel', required: true },
     { key: 'email', label: 'Email', icon: Mail, type: 'email', required: true },
-    { key: 'password', label: 'Password', icon: Lock, type: 'password', required: true },
+    
     { key: 'location', label: 'Location / Address', icon: MapPin, type: 'text', required: true },
     { key: 'place', label: 'Place', icon: MapPin, type: 'text', required: false },
     { key: 'landmark', label: 'Landmark (near your location)', icon: Landmark, type: 'text', required: false },
