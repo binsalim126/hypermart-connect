@@ -36,13 +36,18 @@ const Shop = () => {
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const getDisplayPrice = (product: any) => {
+    return product.is_on_offer && product.offer_price ? product.offer_price : product.our_price;
+  };
+
   const handleAddToCart = (product: any) => {
+    const price = getDisplayPrice(product);
     addItem({
       product_id: product.id,
       name: product.name,
       photo_url: product.photo_url,
       mrp: product.mrp,
-      our_price: product.our_price,
+      our_price: price,
       unit: product.unit,
       is_weight_based: product.is_weight_based,
     });
