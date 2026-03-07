@@ -36,13 +36,18 @@ const Shop = () => {
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const getDisplayPrice = (product: any) => {
+    return product.is_on_offer && product.offer_price ? product.offer_price : product.our_price;
+  };
+
   const handleAddToCart = (product: any) => {
+    const price = getDisplayPrice(product);
     addItem({
       product_id: product.id,
       name: product.name,
       photo_url: product.photo_url,
       mrp: product.mrp,
-      our_price: product.our_price,
+      our_price: price,
       unit: product.unit,
       is_weight_based: product.is_weight_based,
     });
@@ -101,7 +106,8 @@ const Shop = () => {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map((product, i) => {
-            const saved = product.mrp - product.our_price;
+            const displayPrice = getDisplayPrice(product);
+            const saved = product.mrp - displayPrice;
             const discount = Math.round((saved / product.mrp) * 100);
             return (
               <motion.div
@@ -122,11 +128,19 @@ const Shop = () => {
                         {discount}% OFF
                       </span>
                     )}
+                    {product.is_on_offer && (
+                      <span className="absolute top-2 right-2 bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                        🔥 OFFER
+                      </span>
+                    )}
                   </div>
                   <CardContent className="p-3 flex-1 flex flex-col">
                     <p className="font-medium text-sm truncate">{product.name}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-primary font-bold">₹{product.our_price}</span>
+                      <span className="text-primary font-bold">₹{displayPrice}</span>
+                      {product.is_on_offer && product.offer_price && (
+                        <span className="text-muted-foreground text-xs line-through">₹{product.our_price}</span>
+                      )}
                       {saved > 0 && (
                         <span className="text-muted-foreground text-xs line-through">₹{product.mrp}</span>
                       )}

@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,25 +19,42 @@ const Cart = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [placing, setPlacing] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [delivery, setDelivery] = useState({
+    name: '',
+    phone: '',
+    location: '',
+    place: '',
+  });
+
+  const openAddressForm = () => {
+    // Pre-fill from profile if available
+    setDelivery({
+      name: profile?.full_name || '',
+      phone: profile?.phone || '',
+      location: profile?.location || '',
+      place: profile?.place || '',
+    });
+    setShowAddressForm(true);
+  };
 
   const handlePlaceOrder = async () => {
-    if (!user) {
-      toast({ title: 'Please sign up first', description: 'You need an account to place orders.', variant: 'destructive' });
-      navigate('/register');
+    if (!delivery.name || !delivery.phone || !delivery.location) {
+      toast({ title: 'Missing fields', description: 'Please fill name, phone, and location.', variant: 'destructive' });
       return;
     }
     if (items.length === 0) return;
 
     setPlacing(true);
     const { data: order, error: orderError } = await supabase.from('orders').insert({
-      user_id: user.id,
+      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
       total_amount: totalAmount,
       saved_amount: totalSaved,
       status: 'pending',
-      delivery_address: profile?.location || '',
-      delivery_landmark: profile?.landmark || '',
-      customer_phone: profile?.phone || '',
-      customer_name: profile?.full_name || '',
+      delivery_address: delivery.location,
+      delivery_landmark: delivery.place,
+      customer_phone: delivery.phone,
+      customer_name: delivery.name,
     }).select().single();
 
     if (orderError || !order) {
@@ -63,9 +82,10 @@ const Cart = () => {
     }
 
     clearCart();
+    setShowAddressForm(false);
     toast({ 
       title: '🎉 Order Placed Successfully!', 
-      description: `Thank you${profile?.full_name ? `, ${profile.full_name}` : ''}! Your order of ₹${totalAmount.toFixed(2)} has been received. We will contact you at ${profile?.phone || 'your number'} shortly for delivery. Payment on delivery only.`,
+      description: `Thank you${delivery.name ? `, ${delivery.name}` : ''}! Your order of ₹${totalAmount.toFixed(2)} has been received. We will contact you at ${delivery.phone} shortly for delivery. Payment on delivery only.`,
     });
     navigate('/');
   };
@@ -176,14 +196,52 @@ const Cart = () => {
                   </div>
                 )}
               </div>
-              <Button className="w-full mt-4" size="lg" onClick={handlePlaceOrder} disabled={placing}>
-                {placing ? 'Placing Order...' : 'Place Order'}
+              <Button className="w-full mt-4" size="lg" onClick={openAddressForm}>
+                Place Order
               </Button>
               <p className="text-xs text-center text-muted-foreground">Payment on delivery only</p>
             </CardContent>
           </Card>
         </motion.div>
       </div>
+
+      {/* Delivery Address Dialog */}
+      <Dialog open={showAddressForm} onOpenChange={setShowAddressForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delivery Details</DialogTitle>
+            <DialogDescription>Please enter your delivery address and contact info.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Name *</label>
+              <Input placeholder="Your full name" value={delivery.name} onChange={e => setDelivery(d => ({ ...d, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Phone Number *</label>
+              <Input placeholder="Your phone number" type="tel" value={delivery.phone} onChange={e => setDelivery(d => ({ ...d, phone: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Location / Address *</label>
+              <Input placeholder="Your delivery address" value={delivery.location} onChange={e => setDelivery(d => ({ ...d, location: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Place / Landmark</label>
+              <Input placeholder="Nearby landmark or place" value={delivery.place} onChange={e => setDelivery(d => ({ ...d, place: e.target.value }))} />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex justify-between font-semibold mb-3">
+                <span>Total</span>
+                <span className="text-primary">₹{totalAmount.toFixed(2)}</span>
+              </div>
+              <Button className="w-full" size="lg" onClick={handlePlaceOrder} disabled={placing}>
+                {placing ? 'Placing Order...' : 'Confirm & Place Order'}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">💵 Payment on delivery only</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
