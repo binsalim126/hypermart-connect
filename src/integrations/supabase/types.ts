@@ -133,9 +133,11 @@ export type Database = {
           description: string | null
           id: string
           in_stock: boolean
+          is_on_offer: boolean
           is_weight_based: boolean
           mrp: number
           name: string
+          offer_price: number | null
           our_price: number
           photo_url: string | null
           unit: string
@@ -148,9 +150,11 @@ export type Database = {
           description?: string | null
           id?: string
           in_stock?: boolean
+          is_on_offer?: boolean
           is_weight_based?: boolean
           mrp: number
           name: string
+          offer_price?: number | null
           our_price: number
           photo_url?: string | null
           unit?: string
@@ -163,9 +167,11 @@ export type Database = {
           description?: string | null
           id?: string
           in_stock?: boolean
+          is_on_offer?: boolean
           is_weight_based?: boolean
           mrp?: number
           name?: string
+          offer_price?: number | null
           our_price?: number
           photo_url?: string | null
           unit?: string
