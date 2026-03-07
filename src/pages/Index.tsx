@@ -175,9 +175,9 @@ const Index = () => {
             Ready to Save on Groceries?
           </h2>
           <p className="text-primary-foreground/80 mb-8">Join thousands of happy families shopping at Vaduthala Hyper Shopee</p>
-          <Link to="/register">
+          <Link to="/shop">
             <Button size="lg" variant="secondary" className="font-semibold">
-              Create Your Account
+              Start Shopping Now
             </Button>
           </Link>
         </div>

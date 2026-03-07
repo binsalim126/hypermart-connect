@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Users, Package, ShoppingCart, MessageSquare, Upload, UserPlus, Bell, X, Pencil } from 'lucide-react';
+import { Plus, Trash2, Users, Package, ShoppingCart, MessageSquare, Upload, UserPlus, Bell, X, Pencil, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,8 @@ const Dashboard = () => {
   const { user, role, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
+  const [orderItems, setOrderItems] = useState<Record<string, any[]>>({});
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -39,6 +41,9 @@ const Dashboard = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState({ name: '', mrp: '', our_price: '', category_id: '', unit: 'piece', is_weight_based: false, in_stock: true });
 
+  // Offer batch
+  const [offerBatchOn, setOfferBatchOn] = useState(false);
+
   useEffect(() => {
     if (!authLoading && (!user || (role !== 'admin' && role !== 'superadmin'))) {
       navigate('/login');
@@ -49,7 +54,6 @@ const Dashboard = () => {
     if (role === 'admin' || role === 'superadmin') {
       fetchData();
 
-      // Real-time subscription for new orders
       const channel = supabase
         .channel('orders-realtime')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
@@ -80,13 +84,32 @@ const Dashboard = () => {
       supabase.from('suggestions').select('*').order('created_at', { ascending: false }),
     ]);
     if (ordersRes.data) setOrders(ordersRes.data);
-    if (productsRes.data) setProducts(productsRes.data);
+    if (productsRes.data) {
+      setProducts(productsRes.data);
+      // Check if any product is on offer to set batch toggle
+      const anyOffer = productsRes.data.some((p: any) => p.is_on_offer);
+      setOfferBatchOn(anyOffer);
+    }
     if (categoriesRes.data) setCategories(categoriesRes.data);
     if (suggestionsRes.data) setSuggestions(suggestionsRes.data);
 
     if (role === 'superadmin' || role === 'admin') {
       const { data: profilesData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       if (profilesData) setUsers(profilesData);
+    }
+  };
+
+  const toggleOrderExpand = async (orderId: string) => {
+    if (expandedOrder === orderId) {
+      setExpandedOrder(null);
+      return;
+    }
+    setExpandedOrder(orderId);
+    if (!orderItems[orderId]) {
+      const { data } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+      if (data) {
+        setOrderItems(prev => ({ ...prev, [orderId]: data }));
+      }
     }
   };
 
@@ -187,9 +210,37 @@ const Dashboard = () => {
 
   const handleAddAdmin = async () => {
     if (!newAdminEmail) return;
-    // Create a new user with admin role via signup — superadmin would set role after
     toast({ title: 'Admin invitation', description: `To add an admin, create their account first, then assign the admin role via Supabase dashboard or SQL.` });
     setNewAdminEmail('');
+  };
+
+  // Offer batch functions
+  const handleToggleOfferBatch = async (on: boolean) => {
+    setOfferBatchOn(on);
+    if (!on) {
+      // Turn off all offers
+      await supabase.from('products').update({ is_on_offer: false, offer_price: null }).neq('id', '00000000-0000-0000-0000-000000000000');
+      toast({ title: 'Offers closed', description: 'All product offers have been turned off.' });
+      fetchData();
+    }
+  };
+
+  const handleToggleProductOffer = async (productId: string, isOn: boolean) => {
+    const product = products.find(p => p.id === productId);
+    if (isOn && !product?.offer_price) {
+      // Set offer price to current our_price by default
+      await supabase.from('products').update({ is_on_offer: true, offer_price: product?.our_price }).eq('id', productId);
+    } else {
+      await supabase.from('products').update({ is_on_offer: isOn, offer_price: isOn ? product?.offer_price : null }).eq('id', productId);
+    }
+    fetchData();
+  };
+
+  const handleUpdateOfferPrice = async (productId: string, price: string) => {
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice)) return;
+    await supabase.from('products').update({ offer_price: numPrice }).eq('id', productId);
+    fetchData();
   };
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
@@ -243,7 +294,14 @@ const Dashboard = () => {
                     <p className="text-xs text-muted-foreground text-center py-6">No notifications yet</p>
                   ) : (
                     notifications.map(n => (
-                      <div key={n.id} className={`p-3 border-b last:border-0 text-sm ${!n.read ? 'bg-primary/5' : ''}`}>
+                      <div key={n.id} className={`p-3 border-b last:border-0 text-sm cursor-pointer ${!n.read ? 'bg-primary/5' : ''}`}
+                        onClick={() => {
+                          setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                          setActiveTab('orders');
+                          setExpandedOrder(n.id);
+                          setShowNotifications(false);
+                          toggleOrderExpand(n.id);
+                        }}>
                         <p className="text-sm">{n.message}</p>
                         <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
                       </div>
@@ -279,6 +337,7 @@ const Dashboard = () => {
         <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
           <TabsTrigger value="orders" className="text-xs sm:text-sm">Orders</TabsTrigger>
           <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
+          <TabsTrigger value="offers" className="text-xs sm:text-sm">Offers</TabsTrigger>
           <TabsTrigger value="categories" className="text-xs sm:text-sm">Categories</TabsTrigger>
           {(role === 'superadmin' || role === 'admin') && <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>}
           {role === 'superadmin' && <TabsTrigger value="admins" className="text-xs sm:text-sm">Admins</TabsTrigger>}
@@ -288,55 +347,112 @@ const Dashboard = () => {
         {/* ORDERS TAB */}
         <TabsContent value="orders">
           <Card>
-            <CardHeader><CardTitle>Recent Orders</CardTitle></CardHeader>
+            <CardHeader><CardTitle>All Orders</CardTitle></CardHeader>
             <CardContent>
               {orders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No orders yet.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Order ID</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Address</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {orders.map(order => (
-                        <TableRow key={order.id}>
-                          <TableCell className="font-mono text-xs">{order.id.slice(0, 8)}</TableCell>
-                          <TableCell>{order.customer_name}</TableCell>
-                          <TableCell>{order.customer_phone}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">{order.delivery_address} {order.delivery_landmark ? `(${order.delivery_landmark})` : ''}</TableCell>
-                          <TableCell className="font-bold">₹{order.total_amount}</TableCell>
-                          <TableCell>
-                            <span className={`text-xs px-2 py-1 rounded-full ${order.status === 'pending' ? 'bg-accent/20 text-accent' : order.status === 'delivered' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                              {order.status}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Select onValueChange={(v) => handleUpdateOrderStatus(order.id, v)}>
-                              <SelectTrigger className="w-32 h-8 text-xs">
-                                <SelectValue placeholder="Update" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="confirmed">Confirmed</SelectItem>
-                                <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
-                                <SelectItem value="delivered">Delivered</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="space-y-2">
+                  {orders.map(order => (
+                    <div key={order.id} className="border rounded-lg overflow-hidden">
+                      <div 
+                        className="p-4 flex flex-wrap items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => toggleOrderExpand(order.id)}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {expandedOrder === order.id ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                          <span className="font-mono text-xs text-muted-foreground">#{order.id.slice(0, 8)}</span>
+                          <span className="font-medium text-sm truncate">{order.customer_name || '—'}</span>
+                        </div>
+                        <span className="text-sm font-bold">₹{order.total_amount}</span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${order.status === 'pending' ? 'bg-accent/20 text-accent-foreground' : order.status === 'delivered' ? 'bg-primary/20 text-primary' : order.status === 'out_for_delivery' ? 'bg-yellow-100 text-yellow-800' : order.status === 'cancelled' ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+                          {order.status}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</span>
+                      </div>
+                      
+                      <AnimatePresence>
+                        {expandedOrder === order.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4 border-t bg-muted/30">
+                              {/* Customer Details */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-3 text-sm">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Customer</p>
+                                  <p className="font-medium">{order.customer_name || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Phone</p>
+                                  <p className="font-medium">{order.customer_phone || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Address</p>
+                                  <p className="font-medium">{order.delivery_address || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Place/Landmark</p>
+                                  <p className="font-medium">{order.delivery_landmark || '—'}</p>
+                                </div>
+                              </div>
+
+                              {/* Order Items */}
+                              <div className="mb-3">
+                                <p className="text-xs font-semibold text-muted-foreground mb-2">ORDER ITEMS</p>
+                                {orderItems[order.id] ? (
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-xs">Product</TableHead>
+                                        <TableHead className="text-xs">Qty</TableHead>
+                                        <TableHead className="text-xs">Price</TableHead>
+                                        <TableHead className="text-xs">MRP</TableHead>
+                                        <TableHead className="text-xs">Subtotal</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {orderItems[order.id].map((item: any) => (
+                                        <TableRow key={item.id}>
+                                          <TableCell className="text-sm">{item.product_name}</TableCell>
+                                          <TableCell className="text-sm">{item.quantity} {item.unit}</TableCell>
+                                          <TableCell className="text-sm">₹{item.price}</TableCell>
+                                          <TableCell className="text-sm text-muted-foreground">₹{item.mrp}</TableCell>
+                                          <TableCell className="text-sm font-medium">₹{(item.price * item.quantity).toFixed(2)}</TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">Loading items...</p>
+                                )}
+                              </div>
+
+                              {/* Status Update */}
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-medium">Update Status:</span>
+                                <Select onValueChange={(v) => handleUpdateOrderStatus(order.id, v)}>
+                                  <SelectTrigger className="w-40 h-8 text-xs">
+                                    <SelectValue placeholder={order.status} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
+                                    <SelectItem value="delivered">Delivered</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -458,6 +574,76 @@ const Dashboard = () => {
               </div>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* OFFERS TAB */}
+        <TabsContent value="offers">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-5 w-5" /> Offer Batch
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {offerBatchOn ? '🟢 Offers are LIVE — customers see offer prices' : '🔴 Offers are OFF'}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">{offerBatchOn ? 'ON' : 'OFF'}</span>
+                <Switch checked={offerBatchOn} onCheckedChange={handleToggleOfferBatch} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {offerBatchOn ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>MRP</TableHead>
+                        <TableHead>Our Price</TableHead>
+                        <TableHead>Offer Price</TableHead>
+                        <TableHead>On Offer</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {products.map(p => (
+                        <TableRow key={p.id} className={p.is_on_offer ? 'bg-primary/5' : ''}>
+                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell className="text-muted-foreground">₹{p.mrp}</TableCell>
+                          <TableCell>₹{p.our_price}</TableCell>
+                          <TableCell>
+                            {p.is_on_offer ? (
+                              <Input
+                                type="number"
+                                className="w-24 h-8 text-sm"
+                                defaultValue={p.offer_price || p.our_price}
+                                onBlur={(e) => handleUpdateOfferPrice(p.id, e.target.value)}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={p.is_on_offer || false}
+                              onCheckedChange={(v) => handleToggleProductOffer(p.id, v)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Tag className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                  <p className="text-muted-foreground">Turn on the Offer Batch switch to start adding products to the offer.</p>
+                  <p className="text-xs text-muted-foreground mt-2">When ON, you can select products, set offer prices, and customers will see the discounted prices.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* CATEGORIES TAB */}
