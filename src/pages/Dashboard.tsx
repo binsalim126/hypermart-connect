@@ -40,6 +40,7 @@ const Dashboard = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState({ name: '', mrp: '', our_price: '', category_id: '', unit: 'piece', is_weight_based: false, in_stock: true });
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
 
   // Offer batch
   const [offerBatchOn, setOfferBatchOn] = useState(false);
