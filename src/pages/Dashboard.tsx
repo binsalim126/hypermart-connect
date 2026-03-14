@@ -40,6 +40,7 @@ const Dashboard = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState({ name: '', mrp: '', our_price: '', category_id: '', unit: 'piece', is_weight_based: false, in_stock: true });
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
 
   // Offer batch
   const [offerBatchOn, setOfferBatchOn] = useState(false);
@@ -178,11 +179,27 @@ const Dashboard = () => {
       is_weight_based: p.is_weight_based,
       in_stock: p.in_stock,
     });
+    setEditPhotoFile(null);
     setEditDialogOpen(true);
   };
 
   const handleEditProduct = async () => {
     if (!editingProduct) return;
+
+    let photoUrl = editingProduct.photo_url;
+
+    if (editPhotoFile) {
+      const ext = editPhotoFile.name.split('.').pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('product-images').upload(path, editPhotoFile);
+      if (uploadError) {
+        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path);
+      photoUrl = publicUrl;
+    }
+
     const { error } = await supabase.from('products').update({
       name: editProduct.name,
       mrp: parseFloat(editProduct.mrp),
@@ -191,6 +208,7 @@ const Dashboard = () => {
       unit: editProduct.unit,
       is_weight_based: editProduct.is_weight_based,
       in_stock: editProduct.in_stock,
+      photo_url: photoUrl,
     }).eq('id', editingProduct.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -198,6 +216,7 @@ const Dashboard = () => {
       toast({ title: 'Product updated!' });
       setEditDialogOpen(false);
       setEditingProduct(null);
+      setEditPhotoFile(null);
       fetchData();
     }
   };
@@ -569,6 +588,16 @@ const Dashboard = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-sm">In Stock?</span>
                   <Switch checked={editProduct.in_stock} onCheckedChange={v => setEditProduct(p => ({ ...p, in_stock: v }))} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Change Product Photo</label>
+                  {editingProduct?.photo_url && !editPhotoFile && (
+                    <img src={editingProduct.photo_url} alt="Current" className="h-20 w-20 rounded object-cover mb-2" />
+                  )}
+                  {editPhotoFile && (
+                    <img src={URL.createObjectURL(editPhotoFile)} alt="New" className="h-20 w-20 rounded object-cover mb-2" />
+                  )}
+                  <Input type="file" accept="image/*" onChange={e => setEditPhotoFile(e.target.files?.[0] || null)} />
                 </div>
                 <Button onClick={handleEditProduct} className="w-full">Save Changes</Button>
               </div>
