@@ -589,6 +589,17 @@ const Dashboard = () => {
                   <span className="text-sm">In Stock?</span>
                   <Switch checked={editProduct.in_stock} onCheckedChange={v => setEditProduct(p => ({ ...p, in_stock: v }))} />
                 </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Change Product Photo</label>
+                  {editingProduct?.photo_url && !editPhotoFile && (
+                    <img src={editingProduct.photo_url} alt="Current" className="h-20 w-20 rounded object-cover mb-2" />
+                  )}
+                  {editPhotoFile && (
+                    <img src={URL.createObjectURL(editPhotoFile)} alt="New" className="h-20 w-20 rounded object-cover mb-2" />
+                  )}
+                  <Input type="file" accept="image/*" onChange={e => setEditPhotoFile(e.target.files?.[0] || null)} />
+                </div>
+                </div>
                 <Button onClick={handleEditProduct} className="w-full">Save Changes</Button>
               </div>
             </DialogContent>
