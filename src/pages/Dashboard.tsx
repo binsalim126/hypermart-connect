@@ -599,7 +599,6 @@ const Dashboard = () => {
                   )}
                   <Input type="file" accept="image/*" onChange={e => setEditPhotoFile(e.target.files?.[0] || null)} />
                 </div>
-                </div>
                 <Button onClick={handleEditProduct} className="w-full">Save Changes</Button>
               </div>
             </DialogContent>
