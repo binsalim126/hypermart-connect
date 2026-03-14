@@ -1,9 +1,10 @@
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, MapPin, Clock } from 'lucide-react';
 
-const Footer = () => {
+const Footer = React.forwardRef<HTMLElement>((_, ref) => {
   return (
-    <footer className="bg-card border-t mt-auto">
+    <footer ref={ref} className="bg-card border-t mt-auto">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
           {/* Brand */}
