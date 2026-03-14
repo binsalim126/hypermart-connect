@@ -245,6 +245,8 @@ const Cart = React.forwardRef<HTMLDivElement>((_, ref) => {
       </Dialog>
     </div>
   );
-};
+});
+
+Cart.displayName = 'Cart';
 
 export default Cart;
