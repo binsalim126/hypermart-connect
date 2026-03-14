@@ -185,6 +185,21 @@ const Dashboard = () => {
 
   const handleEditProduct = async () => {
     if (!editingProduct) return;
+
+    let photoUrl = editingProduct.photo_url;
+
+    if (editPhotoFile) {
+      const ext = editPhotoFile.name.split('.').pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('product-images').upload(path, editPhotoFile);
+      if (uploadError) {
+        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path);
+      photoUrl = publicUrl;
+    }
+
     const { error } = await supabase.from('products').update({
       name: editProduct.name,
       mrp: parseFloat(editProduct.mrp),
@@ -193,6 +208,7 @@ const Dashboard = () => {
       unit: editProduct.unit,
       is_weight_based: editProduct.is_weight_based,
       in_stock: editProduct.in_stock,
+      photo_url: photoUrl,
     }).eq('id', editingProduct.id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -200,6 +216,7 @@ const Dashboard = () => {
       toast({ title: 'Product updated!' });
       setEditDialogOpen(false);
       setEditingProduct(null);
+      setEditPhotoFile(null);
       fetchData();
     }
   };
