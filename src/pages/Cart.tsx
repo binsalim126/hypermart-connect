@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,7 +15,7 @@ import { useState } from 'react';
 
 const weightOptions = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5];
 
-const Cart = () => {
+const Cart = React.forwardRef<HTMLDivElement>((_, ref) => {
   const { items, removeItem, updateQuantity, clearCart, totalAmount, totalSaved } = useCart();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
