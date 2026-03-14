@@ -179,6 +179,7 @@ const Dashboard = () => {
       is_weight_based: p.is_weight_based,
       in_stock: p.in_stock,
     });
+    setEditPhotoFile(null);
     setEditDialogOpen(true);
   };
 
